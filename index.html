@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SP-VB4 DECODER</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+* { -webkit-tap-highlight-color: transparent; }
+
+:root {
+    --black:  #0a0a0a;
+    --dark:   #111;
+    --mid:    #1e1e1e;
+    --border: #2e2e2e;
+    --bright: #efefef;
+    --muted:  #666;
+    --white:  #ffffff;
+    --green:  #00ff88;
+    --red:    #ff3344;
+    --yellow: #ffcc00;
+}
+
+body {
+    min-height: 100vh;
+    background: var(--black);
+    font-family: 'Space Mono', monospace;
+    color: var(--bright);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px 60px;
+}
+
+.top-bar {
+    width: 100%;
+    max-width: 720px;
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 16px;
+    margin-bottom: 32px;
+}
+
+.top-bar h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    letter-spacing: 5px;
+    color: var(--white);
+}
+
+.top-bar p {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    margin-top: 4px;
+    text-transform: uppercase;
+}
+
+.drop-zone {
+    width: 100%;
+    max-width: 720px;
+    border: 2px dashed var(--border);
+    background: var(--dark);
+    padding: 60px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+    position: relative;
+}
+
+.drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--white);
+    background: var(--mid);
+}
+
+.drop-icon {
+    font-size: 40px;
+    opacity: 0.4;
+}
+
+.drop-label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 3px;
+    color: var(--muted);
+}
+
+.drop-sub {
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: #444;
+    text-transform: uppercase;
+}
+
+#file-input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+}
+
+.preview-wrap {
+    width: 100%;
+    max-width: 720px;
+    margin-top: 24px;
+    display: none;
+    gap: 20px;
+    flex-direction: column;
+}
+
+.preview-wrap.visible { display: flex; }
+
+.preview-img-box {
+    background: var(--dark);
+    border: 1px solid var(--border);
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.preview-img-box img {
+    max-width: 100%;
+    max-height: 320px;
+    object-fit: contain;
+    display: block;
+}
+
+.results-box {
+    background: var(--dark);
+    border: 1px solid var(--border);
+}
+
+.results-header {
+    background: var(--mid);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 14px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--border);
+}
+.status-dot.ok    { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.status-dot.fail  { background: var(--red);   box-shadow: 0 0 6px var(--red);   }
+.status-dot.warn  { background: var(--yellow);box-shadow: 0 0 6px var(--yellow); }
+
+.result-row {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.result-row:last-child { border-bottom: none; }
+
+.result-key {
+    font-size: 8px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.result-val {
+    font-size: 12px;
+    color: var(--bright);
+    word-break: break-all;
+    line-height: 1.5;
+}
+
+.result-val.found   { color: var(--green); }
+.result-val.missing { color: var(--red);   opacity: 0.6; }
+.result-val.partial { color: var(--yellow); }
+
+.stego-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    padding: 12px 16px;
+}
+
+.stego-cell {
+    background: var(--mid);
+    border: 1px solid var(--border);
+    padding: 10px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.stego-cell-label {
+    font-size: 7px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: center;
+}
+
+.stego-cell-val {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 13px;
+    letter-spacing: 1px;
+    text-align: center;
+}
+.stego-cell-val.ok      { color: var(--green); }
+.stego-cell-val.missing { color: var(--red); opacity: 0.5; }
+
+.section-title-row {
+    padding: 10px 16px 0;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    margin-top: 4px;
+}
+
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 11px;
+    letter-spacing: 1px;
+    border: 1px solid;
+}
+.badge.authentic  { color: var(--green);  border-color: var(--green); }
+.badge.not-found  { color: var(--red);    border-color: var(--red); }
+.badge.partial    { color: var(--yellow); border-color: var(--yellow); }
+
+.verdict-row {
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    border-top: 2px solid var(--border);
+    margin-top: 4px;
+}
+
+.verdict-text {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.5;
+}
+
+.spinner {
+    display: none;
+    width: 100%;
+    max-width: 720px;
+    margin-top: 24px;
+    padding: 24px;
+    background: var(--dark);
+    border: 1px solid var(--border);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 16px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-align: center;
+}
+.spinner.active { display: block; }
+
+.credit {
+    margin-top: 40px;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    color: #333;
+    text-transform: uppercase;
+    text-align: center;
+}
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+    <h1>SP-VB4 DECODER</h1>
+    <p>Watermark verification tool — Sketcher Pro by Vladyslav Bubalo</p>
+</div>
+
+<div class="drop-zone" id="drop-zone">
+    <input type="file" id="file-input" accept="image/png">
+    <div class="drop-icon">▣</div>
+    <div class="drop-label">Drop PNG here or tap to select</div>
+    <div class="drop-sub">Only PNG files supported · Reads EXIF + LSB steganography</div>
+</div>
+
+<div class="spinner" id="spinner">ANALYZING IMAGE...</div>
+
+<div class="preview-wrap" id="preview-wrap">
+
+    <div class="preview-img-box">
+        <img id="preview-img" src="" alt="preview">
+    </div>
+
+    <div class="results-box" id="results-box">
+        <div class="results-header">
+            <div class="status-dot" id="main-dot"></div>
+            <span id="main-status-text">ANALYSIS RESULTS</span>
+        </div>
+
+        <div class="result-row">
+            <div class="result-key">File</div>
+            <div class="result-val" id="res-filename">—</div>
+        </div>
+        <div class="result-row">
+            <div class="result-key">Dimensions</div>
+            <div class="result-val" id="res-dims">—</div>
+        </div>
+
+        <div class="section-title-row">EXIF / PNG METADATA</div>
+
+        <div class="result-row">
+            <div class="result-key">Software</div>
+            <div class="result-val" id="res-software">—</div>
+        </div>
+        <div class="result-row">
+            <div class="result-key">Author / Artist</div>
+            <div class="result-val" id="res-author">—</div>
+        </div>
+        <div class="result-row">
+            <div class="result-key">Copyright</div>
+            <div class="result-val" id="res-copyright">—</div>
+        </div>
+        <div class="result-row">
+            <div class="result-key">Creation Time</div>
+            <div class="result-val" id="res-datetime">—</div>
+        </div>
+        <div class="result-row">
+            <div class="result-key">Comment</div>
+            <div class="result-val" id="res-comment">—</div>
+        </div>
+
+        <div class="section-title-row">LSB STEGANOGRAPHIC WATERMARK (SP-VB4)</div>
+
+        <div class="stego-grid" id="stego-grid"></div>
+
+        <div class="verdict-row">
+            <div id="verdict-badge" class="badge">—</div>
+            <div class="verdict-text" id="verdict-text">Upload a PNG to begin analysis.</div>
+        </div>
+    </div>
+</div>
+
+<div class="credit">SP-VB4 Decoder · Sketcher Pro · Vladyslav Bubalo · Open Source</div>
+
+<script>
+const dropZone     = document.getElementById('drop-zone');
+const fileInput    = document.getElementById('file-input');
+const spinner      = document.getElementById('spinner');
+const previewWrap  = document.getElementById('preview-wrap');
+const previewImg   = document.getElementById('preview-img');
+
+const EXPECTED_SIG = 'SP-VB4';
+const STEGO_SPOTS  = [
+    { label: 'TOP LEFT',    getXY: (w, h) => ({ x: 8,                  y: 8              }) },
+    { label: 'TOP RIGHT',   getXY: (w, h) => ({ x: w - 8 - 80,         y: 8              }) },
+    { label: 'BOT LEFT',    getXY: (w, h) => ({ x: 8,                  y: h - 8 - 2      }) },
+    { label: 'BOT RIGHT',   getXY: (w, h) => ({ x: w - 8 - 80,         y: h - 8 - 2      }) },
+    { label: 'CENTER',      getXY: (w, h) => ({ x: Math.floor(w/2)-40, y: Math.floor(h/2) }) },
+];
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile) processFile(droppedFile);
+});
+fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) processFile(fileInput.files[0]);
+});
+
+function processFile(theFile) {
+    if (!theFile.type.includes('png')) {
+        alert('Only PNG files are supported.');
+        return;
+    }
+    spinner.classList.add('active');
+    previewWrap.classList.remove('visible');
+
+    const objectUrl = URL.createObjectURL(theFile);
+    previewImg.src = objectUrl;
+    document.getElementById('res-filename').textContent = theFile.name;
+
+    previewImg.onload = () => {
+        const offscreenCanvas = document.createElement('canvas');
+        offscreenCanvas.width  = previewImg.naturalWidth;
+        offscreenCanvas.height = previewImg.naturalHeight;
+        const offCtx = offscreenCanvas.getContext('2d');
+        offCtx.drawImage(previewImg, 0, 0);
+
+        document.getElementById('res-dims').textContent =
+            `${previewImg.naturalWidth} × ${previewImg.naturalHeight} px`;
+
+        const pixelData = offCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+
+        const stegoResults = STEGO_SPOTS.map(spotDef => {
+            const coords = spotDef.getXY(offscreenCanvas.width, offscreenCanvas.height);
+            const extracted = extractLsbString(pixelData, offscreenCanvas.width, coords.x, coords.y);
+            return { label: spotDef.label, value: extracted, match: extracted === EXPECTED_SIG };
+        });
+
+        theFile.arrayBuffer().then(pngArrayBuffer => {
+            const pngBytes = new Uint8Array(pngArrayBuffer);
+            const metaFields = parsePngChunks(pngBytes);
+
+            renderResults(stegoResults, metaFields);
+
+            spinner.classList.remove('active');
+            previewWrap.classList.add('visible');
+            URL.revokeObjectURL(objectUrl);
+        });
+    };
+}
+
+function extractLsbString(imageData, imgWidth, startX, startY) {
+    const pixelBuf = imageData.data;
+    let pixelCursor = startX + startY * imgWidth;
+    const charCodeArray = [];
+    let currentCharCode = 0;
+    let bitAccumulator = 0;
+
+    for (let extractLimit = 0; extractLimit < 200; extractLimit++) {
+        const flatPos = pixelCursor * 4;
+        if (flatPos >= pixelBuf.length) break;
+        const lsbBit = pixelBuf[flatPos] & 1;
+        currentCharCode = (currentCharCode << 1) | lsbBit;
+        bitAccumulator++;
+        if (bitAccumulator === 8) {
+            if (currentCharCode === 0) break;
+            charCodeArray.push(currentCharCode);
+            currentCharCode = 0;
+            bitAccumulator = 0;
+        }
+        pixelCursor++;
+    }
+    return charCodeArray.map(c => String.fromCharCode(c)).join('');
+}
+
+function parsePngChunks(pngBytes) {
+    const foundMeta = {
+        software: null, author: null, copyright: null,
+        datetime: null, comment: null, exifPresent: false,
+        exifSoftware: null, exifArtist: null, exifCopyright: null,
+        exifDatetime: null, exifDesc: null, exifUserComment: null,
+    };
+
+    if (pngBytes[0] !== 0x89 || pngBytes[1] !== 0x50) return foundMeta;
+
+    let chunkPos = 8;
+    const dec = new TextDecoder('latin1');
+
+    while (chunkPos < pngBytes.length - 8) {
+        const chunkLen = (pngBytes[chunkPos]   << 24 | pngBytes[chunkPos+1] << 16 |
+                          pngBytes[chunkPos+2] <<  8 | pngBytes[chunkPos+3]) >>> 0;
+        const chunkType = String.fromCharCode(
+            pngBytes[chunkPos+4], pngBytes[chunkPos+5],
+            pngBytes[chunkPos+6], pngBytes[chunkPos+7]
+        );
+        const chunkDataStart = chunkPos + 8;
+        const chunkData = pngBytes.slice(chunkDataStart, chunkDataStart + chunkLen);
+
+        if (chunkType === 'tEXt') {
+            let nullIdx = chunkData.indexOf(0);
+            if (nullIdx === -1) nullIdx = chunkData.length;
+            const keyStr  = dec.decode(chunkData.slice(0, nullIdx)).toLowerCase();
+            const valStr  = dec.decode(chunkData.slice(nullIdx + 1));
+            if (keyStr.includes('software')) foundMeta.software = valStr;
+            else if (keyStr.includes('author'))   foundMeta.author = valStr;
+            else if (keyStr.includes('copyright')) foundMeta.copyright = valStr;
+            else if (keyStr.includes('creation') || keyStr.includes('time') || keyStr.includes('date')) foundMeta.datetime = valStr;
+            else if (keyStr.includes('comment'))  foundMeta.comment = valStr;
+        }
+
+        if (chunkType === 'eXIf') {
+            foundMeta.exifPresent = true;
+            try {
+                const exifFields = parseTiffExif(chunkData);
+                foundMeta.exifSoftware    = exifFields[0x0131] || null;
+                foundMeta.exifArtist      = exifFields[0x013B] || null;
+                foundMeta.exifCopyright   = exifFields[0x8298] || null;
+                foundMeta.exifDatetime    = exifFields[0x0132] || null;
+                foundMeta.exifDesc        = exifFields[0x010E] || null;
+                foundMeta.exifUserComment = exifFields['userComment'] || null;
+            } catch (exifParseError) {
+                foundMeta.exifParseError = exifParseError.message;
+            }
+        }
+
+        if (chunkType === 'IEND') break;
+        chunkPos += 4 + 4 + chunkLen + 4;
+    }
+    return foundMeta;
+}
+
+function parseTiffExif(tiffBytes) {
+    const isLittleEndian = tiffBytes[0] === 0x49;
+    const dec = new TextDecoder('latin1');
+
+    function readU16(pos) {
+        if (isLittleEndian) return tiffBytes[pos] | (tiffBytes[pos+1] << 8);
+        return (tiffBytes[pos] << 8) | tiffBytes[pos+1];
+    }
+    function readU32(pos) {
+        if (isLittleEndian)
+            return (tiffBytes[pos] | tiffBytes[pos+1]<<8 | tiffBytes[pos+2]<<16 | tiffBytes[pos+3]<<24) >>> 0;
+        return (tiffBytes[pos]<<24 | tiffBytes[pos+1]<<16 | tiffBytes[pos+2]<<8 | tiffBytes[pos+3]) >>> 0;
+    }
+
+    function readAscii(offset, count) {
+        const rawStr = dec.decode(tiffBytes.slice(offset, offset + count));
+        return rawStr.replace(/\0/g, '').trim();
+    }
+
+    const collectedFields = {};
+    const ifd0Offset = readU32(4);
+    const ifd0Count  = readU16(ifd0Offset);
+
+    let exifSubIfdOffset = null;
+
+    for (let ifdIdx = 0; ifdIdx < ifd0Count; ifdIdx++) {
+        const entryBase = ifd0Offset + 2 + ifdIdx * 12;
+        const tagNum    = readU16(entryBase);
+        const typeNum   = readU16(entryBase + 2);
+        const countNum  = readU32(entryBase + 4);
+        const valOffset = entryBase + 8;
+
+        if (typeNum === 2) {
+            let dataOffset;
+            if (countNum <= 4) dataOffset = valOffset;
+            else dataOffset = readU32(valOffset);
+            collectedFields[tagNum] = readAscii(dataOffset, countNum);
+        }
+        if (tagNum === 0x8769) {
+            exifSubIfdOffset = readU32(valOffset);
+        }
+    }
+
+    if (exifSubIfdOffset) {
+        const subCount = readU16(exifSubIfdOffset);
+        for (let subIdx = 0; subIdx < subCount; subIdx++) {
+            const subEntryBase = exifSubIfdOffset + 2 + subIdx * 12;
+            const subTag   = readU16(subEntryBase);
+            const subType  = readU16(subEntryBase + 2);
+            const subCount2 = readU32(subEntryBase + 4);
+            const subValOffset = subEntryBase + 8;
+
+            if (subTag === 0x9286 && subType === 7) {
+                let dataOffset;
+                if (subCount2 <= 4) dataOffset = subValOffset;
+                else dataOffset = readU32(subValOffset);
+                const rawComment = tiffBytes.slice(dataOffset, dataOffset + subCount2);
+                const commentText = dec.decode(rawComment.slice(8)).replace(/\0/g, '').trim();
+                collectedFields['userComment'] = commentText;
+            }
+        }
+    }
+    return collectedFields;
+}
+
+function renderResults(stegoResultsArray, metaFieldsObj) {
+    const matchCount = stegoResultsArray.filter(r => r.match).length;
+    const allMatch   = matchCount === stegoResultsArray.length;
+    const noneMatch  = matchCount === 0;
+
+    const mainDot    = document.getElementById('main-dot');
+    const mainStatus = document.getElementById('main-status-text');
+    mainDot.className = 'status-dot ' + (allMatch ? 'ok' : noneMatch ? 'fail' : 'warn');
+    mainStatus.textContent = allMatch ? 'AUTHENTIC — ALL MARKS VERIFIED'
+        : noneMatch ? 'NOT VERIFIED — NO WATERMARKS FOUND'
+        : `PARTIAL — ${matchCount}/5 MARKS FOUND`;
+
+    function setField(id, value, isGoodVal) {
+        const el = document.getElementById(id);
+        if (!value) {
+            el.textContent = 'Not found';
+            el.className = 'result-val missing';
+        } else {
+            el.textContent = value;
+            el.className = 'result-val ' + (isGoodVal ? 'found' : '');
+        }
+    }
+
+    const software = metaFieldsObj.exifSoftware || metaFieldsObj.software;
+    const author   = metaFieldsObj.exifArtist   || metaFieldsObj.author;
+    const copyright= metaFieldsObj.exifCopyright|| metaFieldsObj.copyright;
+    const datetime = metaFieldsObj.exifDatetime || metaFieldsObj.datetime;
+    const comment  = metaFieldsObj.exifUserComment || metaFieldsObj.comment;
+
+    setField('res-software',  software,  software  && software.includes('Sketcher Pro'));
+    setField('res-author',    author,    author    && author.includes('Vladyslav'));
+    setField('res-copyright', copyright, copyright && copyright.includes('Vladyslav'));
+    setField('res-datetime',  datetime,  !!datetime);
+    setField('res-comment',   comment,   comment   && comment.includes('SP-VB4'));
+
+    const stegoGrid = document.getElementById('stego-grid');
+    stegoGrid.innerHTML = '';
+    for (const spotResult of stegoResultsArray) {
+        const cellDiv = document.createElement('div');
+        cellDiv.className = 'stego-cell';
+        const labelSpan = document.createElement('div');
+        labelSpan.className = 'stego-cell-label';
+        labelSpan.textContent = spotResult.label;
+        const valSpan = document.createElement('div');
+        valSpan.className = 'stego-cell-val ' + (spotResult.match ? 'ok' : 'missing');
+        valSpan.textContent = spotResult.match ? EXPECTED_SIG : (spotResult.value || '???');
+        cellDiv.appendChild(labelSpan);
+        cellDiv.appendChild(valSpan);
+        stegoGrid.appendChild(cellDiv);
+    }
+
+    const verdictBadge = document.getElementById('verdict-badge');
+    const verdictText  = document.getElementById('verdict-text');
+
+    if (allMatch) {
+        verdictBadge.className = 'badge authentic';
+        verdictBadge.textContent = 'AUTHENTIC';
+        verdictText.textContent = 'All 5 steganographic marks confirmed. EXIF metadata present. This image was created with Sketcher Pro by Vladyslav Bubalo.';
+    } else if (noneMatch && !software && !author) {
+        verdictBadge.className = 'badge not-found';
+        verdictBadge.textContent = 'NOT VERIFIED';
+        verdictText.textContent = 'No SP-VB4 watermarks or metadata found. This image was likely not created with Sketcher Pro, or the watermarks were stripped.';
+    } else {
+        verdictBadge.className = 'badge partial';
+        verdictBadge.textContent = 'PARTIAL';
+        verdictText.textContent = `${matchCount}/5 steganographic marks found. Some marks may have been lost due to recompression or editing.`;
+    }
+}
+</script>
+</body>
+</html>
